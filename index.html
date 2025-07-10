@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Colorful Weather Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body
+    class="bg-gradient-to-r from-indigo-200 via-purple-100 to-pink-200 min-h-screen font-sans text-gray-800"
+  >
+    <div class="flex min-h-screen">
+      <!-- Sidebar -->
+      <div class="w-1/4 bg-white/90 p-6 shadow-2xl backdrop-blur-md rounded-r-3xl">
+        <div class="search-container flex items-center space-x-2 mb-4">
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Location..."
+            class="border-2 border-blue-500 focus:border-blue-700 focus:outline-none rounded px-4 py-2 w-full"
+          />
+          <button
+            onclick="handleSearch()"
+            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Search
+          </button>
+        </div>
+
+        <div class="text-5xl font-bold text-indigo-600 mb-2" id="temp">--°C</div>
+        <div class="text-sm text-gray-600 mb-1">
+          Feels Like: <span class="font-semibold" id="feelsLike">--°C</span>
+        </div>
+        <div class="text-gray-700" id="condition">☁️ Loading...</div>
+        <div class="text-sm text-gray-600" id="clouds">☁️ Clouds: --%</div>
+
+        <div class="mt-6 text-sm text-gray-600" id="locationInfo">
+          📍 Vizag<br />
+          🕘 --:-- --<br />
+          📅 --
+        </div>
+      </div>
+
+      <!-- Main Content -->
+      <div class="w-3/4 p-8">
+        <!-- Weather Stats -->
+        <h2 class="text-2xl font-bold mt-2 mb-4 text-purple-700">
+          🌈 Current Weather
+        </h2>
+        <div class="grid grid-cols-3 gap-6">
+          <div class="bg-white p-4 rounded-xl shadow">
+            <div class="text-sm text-gray-500">🌅 Sunrise/Sunset</div>
+            <div class="text-lg font-semibold" id="sunriseSunset">--</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl shadow">
+            <div class="text-sm text-gray-500">🌫️ Air Quality</div>
+            <div class="text-lg font-semibold" id="aqi">N/A (Free version)</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl shadow">
+            <div class="text-sm text-gray-500">💧 Humidity</div>
+            <div class="text-lg font-semibold" id="humidity">--%</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl shadow">
+            <div class="text-sm text-gray-500">🌡️ Max/Min Temp</div>
+            <div class="text-lg font-semibold" id="maxMinTemp">-- / --</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl shadow">
+            <div class="text-sm text-gray-500">🌬️ Wind Status</div>
+            <div class="text-lg font-semibold" id="wind">-- km/h</div>
+          </div>
+          <div class="bg-white p-4 rounded-xl shadow">
+            <div class="text-sm text-gray-500">👁️ Visibility</div>
+            <div class="text-lg font-semibold" id="visibility">N/A</div>
+          </div>
+        </div>
+
+        <!-- Map -->
+        <div class="mt-8">
+          <iframe
+            id="mapFrame"
+            class="w-full h-52 rounded-xl shadow-xl border-2 border-indigo-400"
+            src="https://maps.google.com/maps?q=vizag,India&z=14&output=embed"
+          ></iframe>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      async function fetchWeather(city = "Vizag") {
+        try {
+          const geoRes = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/search?name=${city}&count=1`
+          );
+          const geoData = await geoRes.json();
+
+          if (!geoData.results || geoData.results.length === 0) {
+            alert("City not found");
+            return;
+          }
+
+          const { latitude, longitude, name, country } = geoData.results[0];
+
+          const weatherRes = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,weathercode,cloudcover,relative_humidity_2m,windspeed_10m&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&timezone=auto`
+          );
+          const weather = await weatherRes.json();
+
+          const now = new Date();
+
+          // 🌡️ Temperature
+          document.getElementById("temp").textContent = `${weather.current.temperature_2m}°C`;
+          document.getElementById("feelsLike").textContent = `${weather.current.apparent_temperature}°C`;
+
+          // ☁️ Condition
+          const cloud = weather.current.cloudcover;
+          const cloudText =
+            cloud >= 75 ? "☁️ Overcast Clouds" :
+            cloud >= 25 ? "⛅ Partly Cloudy" :
+            "☀️ Clear";
+          document.getElementById("condition").textContent = cloudText;
+          document.getElementById("clouds").textContent = `☁️ Clouds: ${cloud}%`;
+
+          // 📍 Location and Time
+          document.getElementById("locationInfo").innerHTML = `📍 ${name}, ${country}<br>🕘 ${now.toLocaleTimeString()}<br>📅 ${now.toDateString()}`;
+
+          // 🌅 Sunrise/Sunset
+          const sunrise = new Date(weather.daily.sunrise[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const sunset = new Date(weather.daily.sunset[0]).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          document.getElementById("sunriseSunset").textContent = `${sunrise} / ${sunset}`;
+
+          // 💧 Humidity
+          document.getElementById("humidity").textContent = `${weather.current.relative_humidity_2m}%`;
+
+          // 🌡️ Max/Min
+          document.getElementById("maxMinTemp").textContent = `${weather.daily.temperature_2m_max[0]}°C / ${weather.daily.temperature_2m_min[0]}°C`;
+
+          // 🌬️ Wind
+          document.getElementById("wind").textContent = `${weather.current.windspeed_10m} km/h`;
+
+          // 👁️ Visibility (not available in Open-Meteo)
+          document.getElementById("visibility").textContent = `N/A`;
+
+          // 📍 Update map
+          document.getElementById("mapFrame").src = `https://maps.google.com/maps?q=${name}&z=14&output=embed`;
+
+        } catch (err) {
+          console.error("Error:", err);
+        }
+      }
+
+      function handleSearch() {
+        const city = document.getElementById("searchInput").value.trim();
+        if (city) fetchWeather(city);
+      }
+
+      // Load default
+      fetchWeather("Vizag");
+    </script>
+  </body>
+</html>
